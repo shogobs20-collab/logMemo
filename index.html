@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>メモ</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+:root{
+  --bg:#000000;
+  --panel:#16181c;
+  --line:#2f3336;
+  --text:#e7e9ea;
+  --muted:#71767b;
+  --accent:#1d9bf0;
+  --danger:#f4212e;
+  --ok:#00ba7c;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text)}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  font-size:15px;line-height:1.5;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+button,textarea,input{font:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer}
+
+/* ---------- 骨格 ---------- */
+.app{max-width:600px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line);min-height:100vh}
+@media(max-width:640px){.app{border:none}}
+
+header{
+  position:sticky;top:0;z-index:20;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  display:flex;align-items:center;gap:12px;
+}
+header h1{font-size:19px;font-weight:800;margin:0;flex:1;letter-spacing:.02em}
+.icon-btn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.icon-btn:hover{background:#181818;color:var(--text)}
+.icon-btn svg{width:20px;height:20px;fill:currentColor}
+
+#syncDot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+#syncDot.busy{background:var(--accent);animation:pulse 1s ease-in-out infinite}
+#syncDot.off{background:var(--danger)}
+#syncDot.ok{background:var(--ok)}
+@keyframes pulse{50%{opacity:.25}}
+
+/* ---------- 投稿ボックス ---------- */
+.composer{display:flex;gap:12px;padding:12px 16px;border-bottom:10px solid var(--panel)}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--panel);flex:none;display:grid;place-items:center;font-size:18px}
+.composer-main{flex:1;min-width:0}
+.composer textarea{
+  width:100%;background:none;border:none;resize:none;outline:none;
+  font-size:18px;line-height:1.45;min-height:56px;padding:8px 0;
+}
+.composer textarea::placeholder{color:var(--muted)}
+.composer-bar{display:flex;align-items:center;gap:4px;padding-top:8px;border-top:1px solid var(--line)}
+.composer-bar .spacer{flex:1}
+.count{font-size:13px;color:var(--muted);margin-right:8px}
+.btn-primary{
+  background:var(--accent);color:#fff;font-weight:700;
+  padding:8px 18px;border-radius:999px;
+}
+.btn-primary:disabled{opacity:.45;cursor:default}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 8px}
+.thumb{position:relative;width:84px;height:84px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb button{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.75);color:#fff;border-radius:50%;width:22px;height:22px;line-height:1;font-size:14px}
+
+/* ---------- 検索 ---------- */
+.searchbar{padding:8px 16px;border-bottom:1px solid var(--line);display:none}
+.searchbar.open{display:block}
+.searchbar input{
+  width:100%;background:var(--panel);border:1px solid transparent;border-radius:999px;
+  padding:9px 16px;outline:none;
+}
+.searchbar input:focus{border-color:var(--accent);background:var(--bg)}
+.taglist{display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 2px}
+.tagchip{font-size:13px;color:var(--accent);background:rgba(29,155,240,.1);padding:3px 10px;border-radius:999px}
+
+/* ---------- 投稿一覧 ---------- */
+.post{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.post:hover{background:#080808}
+.post-main{flex:1;min-width:0}
+.post-head{display:flex;align-items:baseline;gap:6px;font-size:14px}
+.post-head .name{font-weight:700}
+.post-head time{color:var(--muted)}
+.post-body{white-space:pre-wrap;overflow-wrap:anywhere;margin:2px 0 0}
+.post-body .tag{color:var(--accent)}
+.media{display:grid;gap:2px;margin-top:10px;border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.media.n2{grid-template-columns:1fr 1fr}
+.media.n3,.media.n4{grid-template-columns:1fr 1fr}
+.media img{width:100%;display:block;max-height:340px;object-fit:cover;background:var(--panel)}
+.actions{display:flex;gap:28px;margin-top:10px;color:var(--muted)}
+.actions button{display:flex;align-items:center;gap:6px;font-size:13px;color:inherit}
+.actions button:hover{color:var(--accent)}
+.actions .del:hover{color:var(--danger)}
+.actions svg{width:16px;height:16px;fill:currentColor}
+.pending{font-size:12px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:5px}
+
+.replies{border-left:2px solid var(--line);margin-left:36px}
+.empty{padding:56px 24px;text-align:center;color:var(--muted)}
+.empty strong{display:block;color:var(--text);font-size:17px;margin-bottom:6px}
+
+/* ---------- モーダル ---------- */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;display:none;align-items:center;justify-content:center;padding:16px}
+.sheet.open{display:flex}
+.sheet-box{background:var(--bg);border:1px solid var(--line);border-radius:16px;width:100%;max-width:460px;max-height:88vh;overflow:auto;padding:20px}
+.sheet-box h2{margin:0 0 4px;font-size:19px}
+.sheet-box p.help{color:var(--muted);font-size:13px;margin:0 0 16px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+.field input,.field textarea{
+  width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:10px 12px;outline:none;
+}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.sheet-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.btn-ghost{padding:8px 16px;border-radius:999px;border:1px solid var(--line);color:var(--text)}
+.status{font-size:13px;margin-top:12px;padding:10px;border-radius:8px;background:var(--panel);display:none}
+.status.show{display:block}
+
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:60;display:none;align-items:center;justify-content:center}
+#lightbox.open{display:flex}
+#lightbox img{max-width:100%;max-height:100%;object-fit:contain}
+
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  background:var(--accent);color:#fff;padding:10px 20px;border-radius:999px;
+  z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;font-size:14px;
+}
+.toast.show{opacity:1}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <h1 id="viewTitle">メモ</h1>
+    <span id="syncDot" title="同期状態"></span>
+    <button class="icon-btn" id="btnSearch" aria-label="検索">
+      <svg viewBox="0 0 24 24"><path d="M10 3a7 7 0 105.2 11.7l4.6 4.6 1.4-1.4-4.6-4.6A7 7 0 0010 3zm0 2a5 5 0 110 10 5 5 0 010-10z"/></svg>
+    </button>
+    <button class="icon-btn" id="btnSync" aria-label="同期">
+      <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6a6 6 0 11-6 6H4a8 8 0 108-8z"/></svg>
+    </button>
+    <button class="icon-btn" id="btnSettings" aria-label="設定">
+      <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm9 4l-2-.6a7 7 0 00-.7-1.7l1-1.8-1.4-1.4-1.8 1a7 7 0 00-1.7-.7L13.8 5h-2l-.6 2a7 7 0 00-1.7.7l-1.8-1L6.3 8.1l1 1.8a7 7 0 00-.7 1.7L4.6 12v2l2 .6c.2.6.4 1.2.7 1.7l-1 1.8 1.4 1.4 1.8-1c.5.3 1.1.5 1.7.7l.6 2h2l.6-2c.6-.2 1.2-.4 1.7-.7l1.8 1 1.4-1.4-1-1.8c.3-.5.5-1.1.7-1.7l2-.6v-2z"/></svg>
+    </button>
+  </header>
+
+  <div class="searchbar" id="searchbar">
+    <input id="q" type="search" placeholder="本文やタグで探す" autocomplete="off">
+    <div class="taglist" id="taglist"></div>
+  </div>
+
+  <div class="composer" id="composer">
+    <div class="avatar">✎</div>
+    <div class="composer-main">
+      <textarea id="body" rows="1" placeholder="いまなにしてる？"></textarea>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="composer-bar">
+        <button class="icon-btn" id="btnPhoto" aria-label="写真を追加">
+          <svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm0 14H5l3.5-4.5 2.5 3 3.5-4.5L19 18zM8.5 10a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg>
+        </button>
+        <input type="file" id="filePicker" accept="image/*" multiple hidden>
+        <span class="spacer"></span>
+        <span class="count" id="count"></span>
+        <button class="btn-primary" id="btnPost" disabled>投稿する</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="timeline"></div>
+</div>
+
+<!-- 設定 -->
+<div class="sheet" id="settingsSheet">
+  <div class="sheet-box">
+    <h2>接続設定</h2>
+    <p class="help">この端末にだけ保存されます。GitHubには含まれません。</p>
+    <div class="field">
+      <label for="cfgUrl">WebアプリURL</label>
+      <input id="cfgUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+    <div class="field">
+      <label for="cfgKey">合言葉</label>
+      <input id="cfgKey" type="text" autocomplete="off" placeholder="API_KEY に設定した文字列">
+    </div>
+    <div class="status" id="cfgStatus"></div>
+    <div class="sheet-actions">
+      <button class="btn-ghost" id="btnTest">接続を確かめる</button>
+      <button class="btn-primary" id="btnSaveCfg">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 編集 -->
+<div class="sheet" id="editSheet">
+  <div class="sheet-box">
+    <h2>投稿を編集</h2>
+    <p class="help" id="editHint"></p>
+    <div class="field"><textarea id="editBody" rows="6"></textarea></div>
+    <div class="sheet-actions">
+      <button class="btn-ghost" id="btnEditCancel">やめる</button>
+      <button class="btn-primary" id="btnEditSave">保存する</button>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox"><img alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   X風メモアプリ  app.js  (v1.0)
+   ローカル優先 → 後からスプレッドシートへ同期
+   ========================================================= */
+
+const $ = (s) => document.querySelector(s);
+const CFG_KEY = 'memoapp.config';
+const DB_NAME = 'memoapp';
+const DB_VER  = 1;
+
+let db, config = {}, state = { replyTo:null, drafts:[], query:'', view:'timeline', rootId:null };
+
+/* ---------- IndexedDB ---------- */
+function openDB(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('posts')) d.createObjectStore('posts', { keyPath:'id' });
+      if(!d.objectStoreNames.contains('blobs')) d.createObjectStore('blobs');
+      if(!d.objectStoreNames.contains('meta'))  d.createObjectStore('meta');
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror  = () => rej(r.error);
+  });
+}
+function tx(store, mode){ return db.transaction(store, mode).objectStore(store); }
+function idbGet(store, key){
+  return new Promise((res, rej) => { const r = tx(store,'readonly').get(key); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+}
+function idbPut(store, val, key){
+  return new Promise((res, rej) => { const r = tx(store,'readwrite').put(val, key); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); });
+}
+function idbAll(store){
+  return new Promise((res, rej) => { const r = tx(store,'readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); });
+}
+
+/* ---------- 小道具 ---------- */
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
+  : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }));
+const nowIso = () => new Date().toISOString();
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function relTime(iso){
+  const d = new Date(iso), diff = (Date.now()-d)/1000;
+  if(diff < 60) return 'たった今';
+  if(diff < 3600) return Math.floor(diff/60)+'分';
+  if(diff < 86400) return Math.floor(diff/3600)+'時間';
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return sameYear ? `${d.getMonth()+1}月${d.getDate()}日`
+                  : `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+}
+function extractTags(body){
+  return (String(body||'').match(/#[^\s#、。]+/g) || []).map(t => t.slice(1));
+}
+
+/* ---------- 設定 ---------- */
+function loadConfig(){
+  try { config = JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch(e){ config = {}; }
+  return config;
+}
+function hasConfig(){ return !!(config.url && config.key); }
+
+/* ---------- 画像を縮小する ---------- */
+async function compressImage(file, maxSide = 1280, quality = 0.75){
+  const bitmap = await createImageBitmap(file);
+  let { width:w, height:h } = bitmap;
+  const scale = Math.min(1, maxSide / Math.max(w, h));
+  w = Math.round(w * scale); h = Math.round(h * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  bitmap.close && bitmap.close();
+
+  return new Promise(res => canvas.toBlob(b => res(b), 'image/jpeg', quality));
+}
+function blobToBase64(blob){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1]);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
+/* ---------- 通信 ---------- */
+async function apiGet(params){
+  const url = new URL(config.url);
+  url.searchParams.set('key', config.key);
+  Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
+  const res = await fetch(url.toString(), { method:'GET', redirect:'follow' });
+  return res.json();
+}
+async function apiPost(payload){
+  // GASはプリフライトに応答できないため text/plain で送る（中身はJSON）
+  const res = await fetch(config.url, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ key: config.key }, payload)),
+    redirect:'follow'
+  });
+  return res.json();
+}
+
+/* ---------- 同期 ---------- */
+let syncing = false;
+function setDot(cls){ $('#syncDot').className = cls; }
+
+async function sync(silent){
+  if(syncing) return;
+  if(!hasConfig()){ setDot('off'); if(!silent) openSettings(); return; }
+  if(!navigator.onLine){ setDot('off'); if(!silent) toast('オフラインです。書いた内容は端末に残ります'); return; }
+
+  syncing = true; setDot('busy');
+  try {
+    const all = await idbAll('posts');
+
+    // 1) 未送信の画像をドライブへ
+    for(const p of all.filter(x => x._dirty)){
+      const ids = [];
+      for(const ref of (p.image_ids || [])){
+        if(!String(ref).startsWith('local:')){ ids.push(ref); continue; }
+        const blob = await idbGet('blobs', ref);
+        if(!blob){ continue; }
+        const up = await apiPost({ action:'uploadImage', data: await blobToBase64(blob), mimeType:'image/jpeg' });
+        if(!up.ok) throw new Error(up.error || '画像の保存に失敗しました');
+        await idbPut('blobs', blob, up.fileId);
+        ids.push(up.fileId);
+      }
+      p.image_ids = ids;
+    }
+
+    // 2) 未送信の投稿をまとめて送る
+    const dirty = (await idbAll('posts')).filter(x => x._dirty);
+    if(dirty.length){
+      const payload = dirty.map(p => ({
+        id:p.id, created_at:p.created_at, body:p.body,
+        tags:p.tags, image_ids:p.image_ids, parent_id:p.parent_id, deleted:!!p.deleted
+      }));
+      const r = await apiPost({ action:'upsert', posts: payload });
+      if(!r.ok) throw new Error(r.error || '送信に失敗しました');
+      for(const p of dirty){ p._dirty = false; await idbPut('posts', p); }
+    }
+
+    // 3) 他端末の更新を取り込む
+    const since = (await idbGet('meta','lastSync')) || '';
+    const r = await apiGet({ action:'list', since });
+    if(!r.ok) throw new Error(r.error || '取得に失敗しました');
+
+    for(const sp of r.posts){
+      const local = await idbGet('posts', sp.id);
+      if(local && local._dirty) continue;                  // 手元の編集を優先
+      if(local && local.updated_at >= sp.updated_at) continue;
+      await idbPut('posts', Object.assign(sp, { _dirty:false }));
+    }
+    await idbPut('meta', r.serverTime, 'lastSync');
+
+    setDot('ok');
+    if(!silent) toast('同期しました');
+    render();
+  } catch(err){
+    setDot('off');
+    toast('同期できません: ' + err.message);
+  } finally {
+    syncing = false;
+  }
+}
+
+/* ---------- 画像の表示 ---------- */
+const urlCache = new Map();
+async function imageUrl(ref){
+  if(urlCache.has(ref)) return urlCache.get(ref);
+  let blob = await idbGet('blobs', ref);
+  if(!blob && !String(ref).startsWith('local:') && hasConfig() && navigator.onLine){
+    try{
+      const r = await apiGet({ action:'image', id: ref });
+      if(r.ok){
+        const bytes = Uint8Array.from(atob(r.data), c => c.charCodeAt(0));
+        blob = new Blob([bytes], { type:r.mimeType });
+        await idbPut('blobs', blob, ref);
+      }
+    }catch(e){ /* オフラインなら表示を諦める */ }
+  }
+  if(!blob) return null;
+  const u = URL.createObjectURL(blob);
+  urlCache.set(ref, u);
+  return u;
+}
+async function hydrateImages(scope){
+  for(const img of (scope || document).querySelectorAll('img[data-ref]')){
+    const u = await imageUrl(img.dataset.ref);
+    if(u) img.src = u;
+  }
+}
+
+/* ---------- 描画 ---------- */
+async function render(){
+  const all = (await idbAll('posts')).filter(p => !p.deleted);
+  const q = state.query.trim().toLowerCase();
+
+  const match = (p) => !q ||
+    p.body.toLowerCase().includes(q) ||
+    (p.tags || []).some(t => t.toLowerCase().includes(q));
+
+  const byParent = {};
+  all.forEach(p => { const k = p.parent_id || ''; (byParent[k] = byParent[k] || []).push(p); });
+  Object.values(byParent).forEach(list => list.sort((a,b) => a.created_at < b.created_at ? 1 : -1));
+
+  let roots;
+  if(state.view === 'thread'){
+    const root = all.find(p => p.id === state.rootId);
+    roots = root ? [root] : [];
+    $('#viewTitle').textContent = 'スレッド';
+  } else {
+    roots = (byParent[''] || []).filter(p => match(p) || (byParent[p.id] || []).some(match));
+    $('#viewTitle').textContent = q ? '検索結果' : 'メモ';
+  }
+
+  const tl = $('#timeline');
+  if(!roots.length){
+    tl.innerHTML = `<div class="empty"><strong>${q ? '見つかりませんでした' : 'まだ何もありません'}</strong>
+      ${q ? '別の言葉で探してみてください' : '上の欄に書いて、投稿してみてください'}</div>`;
+    renderTagList(all);
+    return;
+  }
+
+  tl.innerHTML = roots.map(p =>
+    postHTML(p) + (byParent[p.id] ? `<div class="replies">${byParent[p.id].map(postHTML).join('')}</div>` : '')
+  ).join('');
+
+  renderTagList(all);
+  hydrateImages(tl);
+}
+
+function renderTagList(all){
+  const counts = {};
+  all.forEach(p => (p.tags || []).forEach(t => counts[t] = (counts[t]||0)+1));
+  const top = Object.keys(counts).sort((a,b) => counts[b]-counts[a]).slice(0, 12);
+  $('#taglist').innerHTML = top.map(t => `<button class="tagchip" data-tag="${esc(t)}">#${esc(t)}</button>`).join('');
+}
+
+function postHTML(p){
+  const body = esc(p.body).replace(/#[^\s#、。]+/g, m => `<span class="tag">${m}</span>`);
+  const imgs = (p.image_ids || []).filter(Boolean);
+  const media = imgs.length
+    ? `<div class="media n${Math.min(imgs.length,4)}">${imgs.map(r => `<img data-ref="${esc(r)}" alt="添付画像">`).join('')}</div>`
+    : '';
+  return `
+  <article class="post" data-id="${p.id}">
+    <div class="avatar">✎</div>
+    <div class="post-main">
+      <div class="post-head"><span class="name">メモ</span><time datetime="${p.created_at}">${relTime(p.created_at)}</time>
+        ${p.updated_at > p.created_at ? '<span style="color:var(--muted)">・編集済み</span>' : ''}</div>
+      <p class="post-body">${body}</p>
+      ${media}
+      <div class="actions">
+        <button data-act="reply"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3V4z"/></svg>返信</button>
+        <button data-act="edit"><svg viewBox="0 0 24 24"><path d="M3 17.2V21h3.8L17.8 10 14 6.2 3 17.2zM20.7 7.1a1 1 0 000-1.4l-2.4-2.4a1 1 0 00-1.4 0L15 5.2 18.8 9l1.9-1.9z"/></svg>編集</button>
+        <button data-act="del" class="del"><svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7zm3-4h6l1 2h4v2H2V5h4l1-2z"/></svg>削除</button>
+      </div>
+      ${p._dirty ? '<div class="pending">未送信 — オンラインになったら同期します</div>' : ''}
+    </div>
+  </article>`;
+}
+
+/* ---------- 投稿する ---------- */
+function updateComposer(){
+  const len = $('#body').value.trim().length;
+  $('#count').textContent = len ? len : '';
+  $('#btnPost').disabled = !len && !state.drafts.length;
+  $('#btnPost').textContent = state.replyTo ? '返信する' : '投稿する';
+  $('#body').placeholder = state.replyTo ? '返信を書く' : 'いまなにしてる？';
+}
+function renderThumbs(){
+  $('#thumbs').innerHTML = state.drafts.map((d,i) =>
+    `<div class="thumb"><img src="${d.url}" alt=""><button data-i="${i}" aria-label="削除">×</button></div>`).join('');
+}
+
+async function submitPost(){
+  const body = $('#body').value.trim();
+  if(!body && !state.drafts.length) return;
+
+  const image_ids = [];
+  for(const d of state.drafts){
+    const ref = 'local:' + uuid();
+    await idbPut('blobs', d.blob, ref);
+    image_ids.push(ref);
+  }
+  const post = {
+    id: uuid(), created_at: nowIso(), updated_at: nowIso(),
+    body, tags: extractTags(body), image_ids,
+    parent_id: state.replyTo || '', deleted:false, _dirty:true
+  };
+  await idbPut('posts', post);
+
+  $('#body').value = '';
+  state.drafts.forEach(d => URL.revokeObjectURL(d.url));
+  state.drafts = []; state.replyTo = null;
+  renderThumbs(); updateComposer(); autoGrow();
+  await render();
+  sync(true);
+}
+
+/* ---------- イベント ---------- */
+function autoGrow(){
+  const t = $('#body'); t.style.height = 'auto'; t.style.height = Math.max(56, t.scrollHeight) + 'px';
+}
+
+$('#body').addEventListener('input', () => { updateComposer(); autoGrow(); });
+$('#btnPost').addEventListener('click', submitPost);
+
+$('#btnPhoto').addEventListener('click', () => $('#filePicker').click());
+$('#filePicker').addEventListener('change', async (e) => {
+  for(const f of e.target.files){
+    if(state.drafts.length >= 4){ toast('画像は4枚までです'); break; }
+    const blob = await compressImage(f);
+    state.drafts.push({ blob, url: URL.createObjectURL(blob) });
+  }
+  e.target.value = '';
+  renderThumbs(); updateComposer();
+});
+$('#thumbs').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if(!b) return;
+  const i = +b.dataset.i;
+  URL.revokeObjectURL(state.drafts[i].url);
+  state.drafts.splice(i,1);
+  renderThumbs(); updateComposer();
+});
+
+$('#timeline').addEventListener('click', async (e) => {
+  const art = e.target.closest('.post'); if(!art) return;
+  const id = art.dataset.id;
+  const btn = e.target.closest('button[data-act]');
+  const img = e.target.closest('img[data-ref]');
+
+  if(img && img.src){ $('#lightbox img').src = img.src; $('#lightbox').classList.add('open'); return; }
+
+  if(!btn){
+    state.view = 'thread'; state.rootId = (await idbGet('posts', id)).parent_id || id;
+    render(); window.scrollTo(0,0); return;
+  }
+
+  const post = await idbGet('posts', id);
+  if(btn.dataset.act === 'reply'){
+    state.replyTo = post.parent_id || post.id;
+    updateComposer(); $('#body').focus(); window.scrollTo(0,0);
+    toast('返信を書いています');
+  }
+  if(btn.dataset.act === 'edit') openEdit(post);
+  if(btn.dataset.act === 'del'){
+    if(!confirm('この投稿を削除します。よろしいですか？')) return;
+    post.deleted = true; post.updated_at = nowIso(); post._dirty = true;
+    await idbPut('posts', post);
+    if(state.view === 'thread' && state.rootId === post.id){ state.view='timeline'; state.rootId=null; }
+    await render(); sync(true);
+  }
+});
+
+$('#lightbox').addEventListener('click', () => $('#lightbox').classList.remove('open'));
+
+/* 検索 */
+$('#btnSearch').addEventListener('click', () => {
+  const bar = $('#searchbar'); bar.classList.toggle('open');
+  if(bar.classList.contains('open')) $('#q').focus();
+  else { state.query = ''; $('#q').value = ''; render(); }
+});
+$('#q').addEventListener('input', (e) => {
+  state.query = e.target.value; state.view = 'timeline'; state.rootId = null; render();
+});
+$('#taglist').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tag]'); if(!b) return;
+  $('#q').value = b.dataset.tag; state.query = b.dataset.tag;
+  state.view = 'timeline'; render();
+});
+
+/* 編集 */
+let editingId = null;
+function openEdit(post){
+  editingId = post.id;
+  $('#editBody').value = post.body;
+  $('#editHint').textContent = new Date(post.created_at).toLocaleString('ja-JP') + ' の投稿';
+  $('#editSheet').classList.add('open');
+  $('#editBody').focus();
+}
+$('#btnEditCancel').addEventListener('click', () => $('#editSheet').classList.remove('open'));
+$('#btnEditSave').addEventListener('click', async () => {
+  const post = await idbGet('posts', editingId);
+  post.body = $('#editBody').value;
+  post.tags = extractTags(post.body);
+  post.updated_at = nowIso(); post._dirty = true;
+  await idbPut('posts', post);
+  $('#editSheet').classList.remove('open');
+  await render(); sync(true);
+});
+
+/* 設定 */
+function openSettings(){
+  $('#cfgUrl').value = config.url || '';
+  $('#cfgKey').value = config.key || '';
+  $('#cfgStatus').className = 'status';
+  $('#settingsSheet').classList.add('open');
+}
+$('#btnSettings').addEventListener('click', openSettings);
+$('#settingsSheet').addEventListener('click', (e) => {
+  if(e.target.id === 'settingsSheet' && hasConfig()) $('#settingsSheet').classList.remove('open');
+});
+$('#btnTest').addEventListener('click', async () => {
+  const s = $('#cfgStatus'); s.className = 'status show'; s.textContent = '確かめています…';
+  const backup = config;
+  config = { url: $('#cfgUrl').value.trim(), key: $('#cfgKey').value.trim() };
+  try{
+    const r = await apiGet({});
+    s.textContent = r.ok ? 'つながりました。保存できます。' : 'つながりません: ' + (r.error || '不明');
+  }catch(err){
+    s.textContent = 'つながりません: ' + err.message;
+  }
+  config = backup;
+});
+$('#btnSaveCfg').addEventListener('click', () => {
+  config = { url: $('#cfgUrl').value.trim(), key: $('#cfgKey').value.trim() };
+  localStorage.setItem(CFG_KEY, JSON.stringify(config));
+  $('#settingsSheet').classList.remove('open');
+  toast('保存しました');
+  sync();
+});
+
+$('#viewTitle').addEventListener('click', () => {
+  if(state.view === 'thread'){ state.view = 'timeline'; state.rootId = null; render(); }
+});
+$('#viewTitle').style.cursor = 'pointer';
+
+$('#btnSync').addEventListener('click', () => sync());
+window.addEventListener('online',  () => { setDot(''); sync(true); });
+window.addEventListener('offline', () => setDot('off'));
+
+/* ---------- 起動 ---------- */
+(async function boot(){
+  db = await openDB();
+  loadConfig();
+  updateComposer(); autoGrow();
+  await render();
+  if(!hasConfig()) openSettings(); else sync(true);
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+})();
+</script>
+</body>
+</html>
