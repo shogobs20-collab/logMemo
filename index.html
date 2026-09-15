@@ -150,6 +150,7 @@ header h1{font-size:19px;font-weight:800;margin:0;flex:1;letter-spacing:.02em}
 
 .toast{
   position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+  max-width:min(92vw,560px);text-align:left;border-radius:14px;line-height:1.45;
   background:var(--accent);color:#fff;padding:10px 20px;border-radius:999px;
   z-index:80;opacity:0;pointer-events:none;transition:opacity .2s;font-size:14px;
 }
@@ -291,7 +292,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>
 
 function toast(msg){
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), msg.length > 40 ? 9000 : 2200);
 }
 function relTime(iso){
   const d = new Date(iso), diff = (Date.now()-d)/1000;
@@ -354,22 +355,37 @@ function blobToBase64(blob){
 }
 
 /* ---------- 通信 ---------- */
-async function apiGet(params){
-  const url = new URL(config.url);
-  url.searchParams.set('key', config.key);
+/** 返事がJSONでない時に、何の要求で何が返ったのかを分かる形にする */
+async function parseReply(res, label){
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch(e){
+    console.error('[memo] ' + label + ' の返事がJSONではありません', { status: res.status, url: res.url, body: text.slice(0, 2000) });
+    const head = text.slice(0, 200).replace(/\s+/g, ' ');
+    let why = 'Googleが画面を返しました';
+    if(/accounts\.google\.com|ログイン|Sign in/i.test(text)) why = 'Googleのログイン画面が返りました（公開範囲を確認）';
+    else if(/一時的に|temporarily|try again/i.test(text)) why = 'Google側が混み合っています（少し待って再実行）';
+    else if(/Exceeded|時間/i.test(text)) why = '処理が時間切れになりました（もう一度押すと続きから進みます）';
+    throw new Error(label + ': ' + why + ' / ' + head);
+  }
+}
+async function apiGet(params, label){
+  const url = new URL(String(config.url).trim());
+  url.searchParams.set('key', String(config.key).trim());
   Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
   const res = await fetch(url.toString(), { method:'GET', redirect:'follow' });
-  return res.json();
+  return parseReply(res, label || ('取得(' + (params.action || 'ping') + ')'));
 }
 async function apiPost(payload){
   // GASはプリフライトに応答できないため text/plain で送る（中身はJSON）
-  const res = await fetch(config.url, {
+  const res = await fetch(String(config.url).trim(), {
     method:'POST',
     headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ key: config.key }, payload)),
+    body: JSON.stringify(Object.assign({ key: String(config.key).trim() }, payload)),
     redirect:'follow'
   });
-  return res.json();
+  return parseReply(res, '送信(' + payload.action + ')');
 }
 
 /* ---------- 同期 ---------- */
