@@ -392,6 +392,38 @@ async function apiPost(payload){
 let syncing = false;
 function setDot(cls){ $('#syncDot').className = cls; }
 
+/** 失敗しても数回やり直す（Googleの窓口は時々断ってくる） */
+async function apiPostRetry(payload, tries){
+  let last;
+  for(let i = 0; i < (tries || 3); i++){
+    try {
+      const r = await apiPost(payload);
+      if(r && r.ok !== false) return r;
+      last = new Error(r.error || '失敗しました');
+    } catch(err){ last = err; }
+    await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+  }
+  throw last;
+}
+
+/** 大きすぎる画像は縮めてから送る（大きい荷物ほど断られやすいため） */
+async function uploadBlob(blob){
+  const LIMIT = 600000;                       // base64でおよそ600KB
+  let data = await blobToBase64(blob);
+  if(data.length > LIMIT){
+    blob = await compressImage(blob, 1000, 0.6);
+    data = await blobToBase64(blob);
+  }
+  if(data.length > LIMIT){
+    blob = await compressImage(blob, 800, 0.5);
+    data = await blobToBase64(blob);
+  }
+  const up = await apiPostRetry({ action:'uploadImage', data, mimeType:'image/jpeg' }, 3);
+  return { fileId: up.fileId, blob };
+}
+
+let uploadFails = 0;
+
 /** すでに保存済みの投稿に残っている仮ID（local:〜）を本物のファイルIDへ直す */
 async function repairLocalRefs(){
   const all = await idbAll('posts');
@@ -404,10 +436,13 @@ async function repairLocalRefs(){
       if(!String(ref).startsWith('local:')){ ids.push(ref); continue; }
       const blob = await idbGet('blobs', ref);
       if(!blob){ ids.push(ref); continue; }          // この端末に元画像が無い＝直せない
-      const up = await apiPost({ action:'uploadImage', data: await blobToBase64(blob), mimeType:'image/jpeg' });
-      if(!up.ok){ ids.push(ref); continue; }
-      await idbPut('blobs', blob, up.fileId);
-      ids.push(up.fileId); changed = true;
+      try {
+        const up = await uploadBlob(blob);
+        await idbPut('blobs', up.blob, up.fileId);
+        ids.push(up.fileId); changed = true;
+      } catch(err){
+        uploadFails++; ids.push(ref);                // 次回に持ち越す
+      }
     }
     if(changed){
       p.image_ids = ids; p.updated_at = nowIso(); p._dirty = true;
@@ -422,7 +457,7 @@ async function sync(silent){
   if(!hasConfig()){ setDot('off'); if(!silent) openSettings(); return; }
   if(!navigator.onLine){ setDot('off'); if(!silent) toast('オフラインです。書いた内容は端末に残ります'); return; }
 
-  syncing = true; setDot('busy');
+  syncing = true; setDot('busy'); uploadFails = 0;
   try {
     await repairLocalRefs();
     const all = await idbAll('posts');
@@ -434,10 +469,13 @@ async function sync(silent){
         if(!String(ref).startsWith('local:')){ ids.push(ref); continue; }
         const blob = await idbGet('blobs', ref);
         if(!blob){ ids.push(ref); continue; }
-        const up = await apiPost({ action:'uploadImage', data: await blobToBase64(blob), mimeType:'image/jpeg' });
-        if(!up.ok) throw new Error(up.error || '画像の保存に失敗しました');
-        await idbPut('blobs', blob, up.fileId);
-        ids.push(up.fileId); changed = true;
+        try {
+          const up = await uploadBlob(blob);
+          await idbPut('blobs', up.blob, up.fileId);
+          ids.push(up.fileId); changed = true;
+        } catch(err){
+          uploadFails++; ids.push(ref);              // この画像だけ次回へ回す
+        }
       }
       if(changed){ p.image_ids = ids; await idbPut('posts', p); }
     }
@@ -468,7 +506,8 @@ async function sync(silent){
     await idbPut('meta', r.serverTime, 'lastSync');
 
     setDot('ok');
-    if(!silent) toast('同期しました');
+    if(uploadFails) toast(uploadFails + '枚の画像だけ送れませんでした。時間をおいて更新してください（他は同期済みです）');
+    else if(!silent) toast('同期しました');
     render();
   } catch(err){
     setDot('off');

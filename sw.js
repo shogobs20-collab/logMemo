@@ -1,6 +1,6 @@
 /* メモアプリ サービスワーカー
    ★デプロイのたびに CACHE の数字を必ず1つ上げること★ */
-const CACHE = 'memo-v3';
+const CACHE = 'memo-v5';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -17,10 +17,28 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
+
   // GASへの通信は絶対にキャッシュしない
   if (url.hostname.endsWith('googleusercontent.com') || url.hostname === 'script.google.com') return;
   if (e.request.method !== 'GET') return;
 
+  const isPage = e.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
+
+  if (isPage) {
+    // 本体は「通信が先、だめならキャッシュ」— 更新が遅れないようにするため
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' })
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy));
+          return res;
+        })
+        .catch(() => caches.match(e.request).then(hit => hit || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // 画像などは「キャッシュが先」
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
       if (res.ok && url.origin === location.origin) {
@@ -28,6 +46,6 @@ self.addEventListener('fetch', (e) => {
         caches.open(CACHE).then(c => c.put(e.request, copy));
       }
       return res;
-    }).catch(() => caches.match('./index.html')))
+    }))
   );
 });
