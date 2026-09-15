@@ -9,14 +9,32 @@
 <link rel="apple-touch-icon" href="./icon-192.png">
 <style>
 :root{
-  --bg:#000000;
-  --panel:#16181c;
-  --line:#2f3336;
-  --text:#e7e9ea;
-  --muted:#71767b;
-  --accent:#1d9bf0;
-  --danger:#f4212e;
-  --ok:#00ba7c;
+  /* Twitter ライト */
+  --bg:#ffffff;
+  --panel:#f7f9f9;
+  --line:#eff3f4;
+  --text:#0f1419;
+  --muted:#536471;
+  --accent:#1da1f2;
+  --accent-soft:rgba(29,161,242,.1);
+  --hover:#f7f9f9;
+  --blur:rgba(255,255,255,.85);
+  --danger:#e0245e;
+  --ok:#17bf63;
+}
+html[data-theme="dim"]{
+  /* Twitter ダーク（夜間用） */
+  --bg:#15202b;
+  --panel:#192734;
+  --line:#38444d;
+  --text:#f7f9f9;
+  --muted:#8899a6;
+  --accent:#1da1f2;
+  --accent-soft:rgba(29,161,242,.16);
+  --hover:#1c2938;
+  --blur:rgba(21,32,43,.85);
+  --danger:#e0245e;
+  --ok:#17bf63;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text)}
@@ -34,14 +52,14 @@ button{background:none;border:none;cursor:pointer}
 
 header{
   position:sticky;top:0;z-index:20;
-  background:rgba(0,0,0,.85);backdrop-filter:blur(12px);
+  background:var(--blur);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--line);
   padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
   display:flex;align-items:center;gap:12px;
 }
 header h1{font-size:19px;font-weight:800;margin:0;flex:1;letter-spacing:.02em}
 .icon-btn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
-.icon-btn:hover{background:#181818;color:var(--text)}
+.icon-btn:hover{background:var(--hover);color:var(--text)}
 .icon-btn svg{width:20px;height:20px;fill:currentColor}
 
 #syncDot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
@@ -52,7 +70,8 @@ header h1{font-size:19px;font-weight:800;margin:0;flex:1;letter-spacing:.02em}
 
 /* ---------- 投稿ボックス ---------- */
 .composer{display:flex;gap:12px;padding:12px 16px;border-bottom:10px solid var(--panel)}
-.avatar{width:40px;height:40px;border-radius:50%;background:var(--panel);flex:none;display:grid;place-items:center;font-size:18px}
+.media-missing{display:grid;place-items:center;min-height:110px;background:var(--panel);color:var(--muted);font-size:13px;padding:20px;text-align:center}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;flex:none;display:grid;place-items:center;font-size:18px}
 .composer-main{flex:1;min-width:0}
 .composer textarea{
   width:100%;background:none;border:none;resize:none;outline:none;
@@ -81,11 +100,11 @@ header h1{font-size:19px;font-weight:800;margin:0;flex:1;letter-spacing:.02em}
 }
 .searchbar input:focus{border-color:var(--accent);background:var(--bg)}
 .taglist{display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 2px}
-.tagchip{font-size:13px;color:var(--accent);background:rgba(29,155,240,.1);padding:3px 10px;border-radius:999px}
+.tagchip{font-size:13px;color:var(--accent);background:var(--accent-soft);padding:3px 10px;border-radius:999px}
 
 /* ---------- 投稿一覧 ---------- */
 .post{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
-.post:hover{background:#080808}
+.post:hover{background:var(--hover)}
 .post-main{flex:1;min-width:0}
 .post-head{display:flex;align-items:baseline;gap:6px;font-size:14px}
 .post-head .name{font-weight:700}
@@ -108,7 +127,7 @@ header h1{font-size:19px;font-weight:800;margin:0;flex:1;letter-spacing:.02em}
 .empty strong{display:block;color:var(--text);font-size:17px;margin-bottom:6px}
 
 /* ---------- モーダル ---------- */
-.sheet{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;display:none;align-items:center;justify-content:center;padding:16px}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:none;align-items:center;justify-content:center;padding:16px}
 .sheet.open{display:flex}
 .sheet-box{background:var(--bg);border:1px solid var(--line);border-radius:16px;width:100%;max-width:460px;max-height:88vh;overflow:auto;padding:20px}
 .sheet-box h2{margin:0 0 4px;font-size:19px}
@@ -193,6 +212,13 @@ header h1{font-size:19px;font-weight:800;margin:0;flex:1;letter-spacing:.02em}
     <div class="field">
       <label for="cfgKey">合言葉</label>
       <input id="cfgKey" type="text" autocomplete="off" placeholder="API_KEY に設定した文字列">
+    </div>
+    <div class="field">
+      <label>配色</label>
+      <div style="display:flex;gap:8px">
+        <button class="btn-ghost" data-theme-pick="light" style="flex:1">ライト</button>
+        <button class="btn-ghost" data-theme-pick="dim" style="flex:1">ダーク</button>
+      </div>
     </div>
     <div class="status" id="cfgStatus"></div>
     <div class="sheet-actions">
@@ -280,6 +306,23 @@ function extractTags(body){
   return (String(body||'').match(/#[^\s#、。]+/g) || []).map(t => t.slice(1));
 }
 
+/* ---------- 配色 ---------- */
+function applyTheme(name){
+  const t = (name === 'dim') ? 'dim' : 'light';
+  document.documentElement.dataset.theme = t;
+  document.querySelector('meta[name=theme-color]').setAttribute('content', t === 'dim' ? '#15202b' : '#ffffff');
+  document.querySelectorAll('[data-theme-pick]').forEach(b => {
+    b.style.borderColor = (b.dataset.themePick === t) ? 'var(--accent)' : 'var(--line)';
+    b.style.color = (b.dataset.themePick === t) ? 'var(--accent)' : 'var(--text)';
+  });
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-theme-pick]'); if(!b) return;
+  config.theme = b.dataset.themePick;
+  localStorage.setItem(CFG_KEY, JSON.stringify(config));
+  applyTheme(config.theme);
+});
+
 /* ---------- 設定 ---------- */
 function loadConfig(){
   try { config = JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch(e){ config = {}; }
@@ -333,6 +376,31 @@ async function apiPost(payload){
 let syncing = false;
 function setDot(cls){ $('#syncDot').className = cls; }
 
+/** すでに保存済みの投稿に残っている仮ID（local:〜）を本物のファイルIDへ直す */
+async function repairLocalRefs(){
+  const all = await idbAll('posts');
+  let fixed = 0;
+  for(const p of all){
+    const refs = p.image_ids || [];
+    if(!refs.some(r => String(r).startsWith('local:'))) continue;
+    const ids = []; let changed = false;
+    for(const ref of refs){
+      if(!String(ref).startsWith('local:')){ ids.push(ref); continue; }
+      const blob = await idbGet('blobs', ref);
+      if(!blob){ ids.push(ref); continue; }          // この端末に元画像が無い＝直せない
+      const up = await apiPost({ action:'uploadImage', data: await blobToBase64(blob), mimeType:'image/jpeg' });
+      if(!up.ok){ ids.push(ref); continue; }
+      await idbPut('blobs', blob, up.fileId);
+      ids.push(up.fileId); changed = true;
+    }
+    if(changed){
+      p.image_ids = ids; p.updated_at = nowIso(); p._dirty = true;
+      await idbPut('posts', p); fixed++;
+    }
+  }
+  if(fixed) toast(fixed + '件の投稿の画像を直しました');
+}
+
 async function sync(silent){
   if(syncing) return;
   if(!hasConfig()){ setDot('off'); if(!silent) openSettings(); return; }
@@ -340,21 +408,22 @@ async function sync(silent){
 
   syncing = true; setDot('busy');
   try {
+    await repairLocalRefs();
     const all = await idbAll('posts');
 
-    // 1) 未送信の画像をドライブへ
+    // 1) 未送信の画像をドライブへ（★送信後に必ず端末へ保存し直す）
     for(const p of all.filter(x => x._dirty)){
-      const ids = [];
+      const ids = []; let changed = false;
       for(const ref of (p.image_ids || [])){
         if(!String(ref).startsWith('local:')){ ids.push(ref); continue; }
         const blob = await idbGet('blobs', ref);
-        if(!blob){ continue; }
+        if(!blob){ ids.push(ref); continue; }
         const up = await apiPost({ action:'uploadImage', data: await blobToBase64(blob), mimeType:'image/jpeg' });
         if(!up.ok) throw new Error(up.error || '画像の保存に失敗しました');
         await idbPut('blobs', blob, up.fileId);
-        ids.push(up.fileId);
+        ids.push(up.fileId); changed = true;
       }
-      p.image_ids = ids;
+      if(changed){ p.image_ids = ids; await idbPut('posts', p); }
     }
 
     // 2) 未送信の投稿をまとめて送る
@@ -415,8 +484,15 @@ async function imageUrl(ref){
 }
 async function hydrateImages(scope){
   for(const img of (scope || document).querySelectorAll('img[data-ref]')){
-    const u = await imageUrl(img.dataset.ref);
-    if(u) img.src = u;
+    const ref = img.dataset.ref;
+    const u = await imageUrl(ref);
+    if(u){ img.src = u; continue; }
+    const ph = document.createElement('div');
+    ph.className = 'media-missing';
+    ph.textContent = String(ref).startsWith('local:')
+      ? 'この画像はまだ同期されていません'
+      : '画像を読み込めませんでした';
+    img.replaceWith(ph);
   }
 }
 
@@ -644,7 +720,7 @@ $('#btnTest').addEventListener('click', async () => {
   config = backup;
 });
 $('#btnSaveCfg').addEventListener('click', () => {
-  config = { url: $('#cfgUrl').value.trim(), key: $('#cfgKey').value.trim() };
+  config = { url: $('#cfgUrl').value.trim(), key: $('#cfgKey').value.trim(), theme: config.theme || 'light' };
   localStorage.setItem(CFG_KEY, JSON.stringify(config));
   $('#settingsSheet').classList.remove('open');
   toast('保存しました');
@@ -664,6 +740,7 @@ window.addEventListener('offline', () => setDot('off'));
 (async function boot(){
   db = await openDB();
   loadConfig();
+  applyTheme(config.theme);
   updateComposer(); autoGrow();
   await render();
   if(!hasConfig()) openSettings(); else sync(true);
